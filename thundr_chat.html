@@ -1,0 +1,1034 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>thundr - Real-time Chat</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 25%, #f093fb 50%, #f5576c 75%, #4facfe 100%);
+            background-size: 400% 400%;
+            animation: gradientShift 15s ease infinite;
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        @keyframes gradientShift {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+
+        .glass {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 16px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+        }
+
+        .glass-dark {
+            background: rgba(0, 0, 0, 0.1);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 16px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+        }
+
+        .dynamic-island {
+            position: fixed;
+            left: 20px;
+            top: 50%;
+            transform: translateY(-50%);
+            z-index: 1000;
+            transition: all 0.3s ease;
+            cursor: move;
+        }
+
+        .dynamic-island.right {
+            left: auto;
+            right: 20px;
+        }
+
+        .island-container {
+            background: rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(20px);
+            border-radius: 25px;
+            padding: 8px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            min-width: 60px;
+        }
+
+        .nav-item {
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            color: white;
+            font-size: 18px;
+            filter: grayscale(1) brightness(0) invert(1);
+        }
+
+        .nav-item:hover, .nav-item.active {
+            background: rgba(255, 255, 255, 0.2);
+            transform: scale(1.1);
+        }
+
+        .auth-container {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .auth-form {
+            width: 100%;
+            max-width: 400px;
+            padding: 40px;
+            text-align: center;
+        }
+
+        .logo {
+            font-size: 48px;
+            font-weight: 900;
+            background: linear-gradient(45deg, #fff, #f0f8ff);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 10px;
+            letter-spacing: -2px;
+        }
+
+        .tagline {
+            color: rgba(255, 255, 255, 0.8);
+            margin-bottom: 40px;
+            font-size: 16px;
+        }
+
+        .input-group {
+            margin-bottom: 20px;
+            text-align: left;
+        }
+
+        .input-group label {
+            display: block;
+            color: rgba(255, 255, 255, 0.9);
+            margin-bottom: 8px;
+            font-weight: 500;
+        }
+
+        .input-group input {
+            width: 100%;
+            padding: 16px;
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 12px;
+            color: white;
+            font-size: 16px;
+            backdrop-filter: blur(10px);
+            transition: all 0.3s ease;
+        }
+
+        .input-group input:focus {
+            outline: none;
+            border-color: rgba(255, 255, 255, 0.4);
+            background: rgba(255, 255, 255, 0.15);
+        }
+
+        .input-group input::placeholder {
+            color: rgba(255, 255, 255, 0.5);
+        }
+
+        .btn {
+            width: 100%;
+            padding: 16px;
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            border: none;
+            border-radius: 12px;
+            color: white;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-bottom: 16px;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 12px 24px rgba(0, 0, 0, 0.2);
+        }
+
+        .btn-secondary {
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .main-container {
+            display: none;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        .dashboard {
+            padding: 40px;
+            text-align: center;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .dashboard h1 {
+            color: white;
+            font-size: 42px;
+            margin-bottom: 20px;
+            font-weight: 800;
+        }
+
+        .datetime {
+            color: rgba(255, 255, 255, 0.8);
+            font-size: 18px;
+            margin-bottom: 40px;
+        }
+
+        .dashboard-tools {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            width: 100%;
+            max-width: 800px;
+        }
+
+        .tool-card {
+            padding: 30px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            color: white;
+        }
+
+        .tool-card:hover {
+            transform: translateY(-4px);
+            background: rgba(255, 255, 255, 0.15);
+        }
+
+        .tool-icon {
+            font-size: 32px;
+            margin-bottom: 16px;
+            filter: grayscale(1) brightness(0) invert(1);
+        }
+
+        .chat-container {
+            display: none;
+            height: 100vh;
+            position: relative;
+        }
+
+        .chat-sidebar {
+            width: 300px;
+            padding: 20px;
+            border-right: 1px solid rgba(255, 255, 255, 0.1);
+            height: 100vh;
+            overflow-y: auto;
+            position: fixed;
+            left: 100px;
+        }
+
+        .chat-main {
+            margin-left: 400px;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .chat-header {
+            padding: 20px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            display: flex;
+            align-items: center;
+            justify-content: between;
+        }
+
+        .chat-messages {
+            flex: 1;
+            padding: 20px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .message {
+            max-width: 70%;
+            padding: 12px 16px;
+            border-radius: 18px;
+            word-wrap: break-word;
+            position: relative;
+        }
+
+        .message.own {
+            align-self: flex-end;
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            color: white;
+        }
+
+        .message.other {
+            align-self: flex-start;
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .message-sender {
+            font-size: 12px;
+            opacity: 0.8;
+            margin-bottom: 4px;
+        }
+
+        .chat-input-container {
+            padding: 20px;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .chat-input {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+        }
+
+        .chat-input input {
+            flex: 1;
+            padding: 12px 16px;
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 25px;
+            color: white;
+            font-size: 14px;
+        }
+
+        .send-btn {
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            border: none;
+            color: white;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s ease;
+        }
+
+        .send-btn:hover {
+            transform: scale(1.1);
+        }
+
+        .user-list {
+            color: white;
+        }
+
+        .user-item {
+            padding: 12px;
+            border-radius: 12px;
+            margin-bottom: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .user-item:hover {
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        .settings-panel {
+            display: none;
+            padding: 40px;
+            max-width: 600px;
+            margin: 0 auto;
+            color: white;
+        }
+
+        .setting-item {
+            padding: 20px;
+            margin-bottom: 16px;
+            border-radius: 12px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .toggle {
+            width: 50px;
+            height: 26px;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 13px;
+            position: relative;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .toggle.active {
+            background: linear-gradient(45deg, #667eea, #764ba2);
+        }
+
+        .toggle::after {
+            content: '';
+            width: 22px;
+            height: 22px;
+            background: white;
+            border-radius: 50%;
+            position: absolute;
+            top: 2px;
+            left: 2px;
+            transition: all 0.3s ease;
+        }
+
+        .toggle.active::after {
+            left: 26px;
+        }
+
+        .promo-section {
+            margin-top: 20px;
+            padding-top: 20px;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .chromatic-text {
+            background: linear-gradient(45deg, #ff6b6b, #4ecdc4, #45b7d1, #96ceb4, #feca57, #ff9ff3);
+            background-size: 400% 400%;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            animation: chromatic 3s ease-in-out infinite;
+        }
+
+        @keyframes chromatic {
+            0%, 100% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+        }
+
+        .notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 16px;
+            border-radius: 12px;
+            color: white;
+            z-index: 2000;
+            transform: translateX(400px);
+            transition: all 0.3s ease;
+        }
+
+        .notification.show {
+            transform: translateX(0);
+        }
+
+        .hidden { display: none !important; }
+        .visible { display: block !important; }
+
+        @media (max-width: 768px) {
+            .chat-sidebar {
+                width: 100%;
+                position: relative;
+                left: 0;
+            }
+            .chat-main {
+                margin-left: 0;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Dynamic Island Navigation -->
+    <div class="dynamic-island" id="dynamicIsland">
+        <div class="island-container">
+            <div class="nav-item active" data-view="dashboard" title="Dashboard">🏠</div>
+            <div class="nav-item" data-view="chat" title="Chat">💬</div>
+            <div class="nav-item" data-view="friends" title="Friends">👥</div>
+            <div class="nav-item" data-view="global" title="Global Chat">🌍</div>
+            <div class="nav-item" data-view="ai" title="AI Assistant">🤖</div>
+            <div class="nav-item" data-view="settings" title="Settings">⚙️</div>
+            <div class="nav-item" onclick="logout()" title="Logout">🚪</div>
+        </div>
+    </div>
+
+    <!-- Authentication Form -->
+    <div class="auth-container" id="authContainer">
+        <div class="auth-form glass">
+            <div class="logo">thundr</div>
+            <div class="tagline">Lightning-fast conversations</div>
+            
+            <div id="loginForm">
+                <div class="input-group">
+                    <label>Username</label>
+                    <input type="text" id="loginUsername" placeholder="Enter your username">
+                </div>
+                <div class="input-group">
+                    <label>Password</label>
+                    <input type="password" id="loginPassword" placeholder="Enter your password">
+                </div>
+                <button class="btn" onclick="login()">Sign In</button>
+                <button class="btn btn-secondary" onclick="showSignup()">Create Account</button>
+            </div>
+
+            <div id="signupForm" class="hidden">
+                <div class="input-group">
+                    <label>Username</label>
+                    <input type="text" id="signupUsername" placeholder="Choose a username">
+                </div>
+                <div class="input-group">
+                    <label>Email</label>
+                    <input type="email" id="signupEmail" placeholder="Enter your email">
+                </div>
+                <div class="input-group">
+                    <label>Password</label>
+                    <input type="password" id="signupPassword" placeholder="Create a password">
+                </div>
+                <div class="promo-section">
+                    <div class="input-group">
+                        <label>Promo Code (Optional)</label>
+                        <input type="text" id="promoCode" placeholder="Enter promo code">
+                    </div>
+                    <div class="input-group" id="customTitle" style="display: none;">
+                        <label>Custom Title</label>
+                        <input type="text" id="userTitle" placeholder="Your custom title">
+                    </div>
+                </div>
+                <button class="btn" onclick="signup()">Create Account</button>
+                <button class="btn btn-secondary" onclick="showLogin()">Back to Login</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Application -->
+    <div class="main-container" id="mainContainer">
+        <!-- Dashboard -->
+        <div class="dashboard" id="dashboardView">
+            <h1>Welcome to <span id="userGreeting">thundr</span></h1>
+            <div class="datetime" id="datetime"></div>
+            <div class="dashboard-tools">
+                <div class="tool-card glass" onclick="switchView('chat')">
+                    <div class="tool-icon">💬</div>
+                    <h3>Direct Messages</h3>
+                    <p>Private conversations</p>
+                </div>
+                <div class="tool-card glass" onclick="switchView('global')">
+                    <div class="tool-icon">🌍</div>
+                    <h3>Global Chat</h3>
+                    <p>Join the community</p>
+                </div>
+                <div class="tool-card glass" onclick="switchView('friends')">
+                    <div class="tool-icon">👥</div>
+                    <h3>Friends</h3>
+                    <p>Manage connections</p>
+                </div>
+                <div class="tool-card glass" onclick="switchView('ai')">
+                    <div class="tool-icon">🤖</div>
+                    <h3>AI Assistant</h3>
+                    <p>Get help anytime</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Chat Interface -->
+        <div class="chat-container" id="chatView">
+            <div class="chat-sidebar glass-dark">
+                <h3 style="color: white; margin-bottom: 20px;">Conversations</h3>
+                <div class="user-list" id="conversationList">
+                    <div class="user-item glass" onclick="startChat('ai')">
+                        <strong><span style="filter: grayscale(1) brightness(0) invert(1);">🤖</span> AI Assistant</strong>
+                        <div style="font-size: 12px; opacity: 0.8;">Always available</div>
+                    </div>
+                    <div class="user-item glass" onclick="startChat('global')">
+                        <strong><span style="filter: grayscale(1) brightness(0) invert(1);">🌍</span> Global Chat</strong>
+                        <div style="font-size: 12px; opacity: 0.8;">Community discussion</div>
+                    </div>
+                </div>
+            </div>
+            <div class="chat-main">
+                <div class="chat-header glass-dark">
+                    <h2 style="color: white;" id="chatTitle">Select a conversation</h2>
+                </div>
+                <div class="chat-messages" id="chatMessages">
+                    <div style="text-align: center; color: rgba(255,255,255,0.6); margin-top: 50px;">
+                        Choose a conversation to start chatting
+                    </div>
+                </div>
+                <div class="chat-input-container glass-dark">
+                    <div class="chat-input">
+                        <input type="text" id="messageInput" placeholder="Type your message..." onkeypress="if(event.key==='Enter') sendMessage()">
+                        <button class="send-btn" onclick="sendMessage()">
+                            <span>➤</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Settings Panel -->
+        <div class="settings-panel" id="settingsView">
+            <h1 style="margin-bottom: 30px;">Settings</h1>
+            <div class="setting-item glass">
+                <div>
+                    <h3>Dark Theme</h3>
+                    <p style="opacity: 0.8;">Toggle dark mode</p>
+                </div>
+                <div class="toggle" onclick="toggleSetting(this)"></div>
+            </div>
+            <div class="setting-item glass">
+                <div>
+                    <h3>Push Notifications</h3>
+                    <p style="opacity: 0.8;">ChromeOS-style notifications</p>
+                </div>
+                <div class="toggle active" onclick="toggleSetting(this)" id="notificationToggle"></div>
+            </div>
+            <div class="setting-item glass">
+                <div>
+                    <h3>Move Navigation</h3>
+                    <p style="opacity: 0.8;">Switch to right side</p>
+                </div>
+                <div class="toggle" onclick="toggleNavPosition(this)"></div>
+            </div>
+            <div class="setting-item glass" onclick="deleteAccount()" style="cursor: pointer; background: rgba(255,0,0,0.1);">
+                <div>
+                    <h3 style="color: #ff6b6b;">Delete Account</h3>
+                    <p style="opacity: 0.8;">Permanently delete your account</p>
+                </div>
+                <span style="color: #ff6b6b; filter: grayscale(1) brightness(0) invert(1);">🗑️</span>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Global state
+        let currentUser = null;
+        let currentChat = null;
+        let conversations = {};
+        let notificationsEnabled = true;
+
+        // Authentication functions
+        function showLogin() {
+            document.getElementById('loginForm').classList.remove('hidden');
+            document.getElementById('signupForm').classList.add('hidden');
+        }
+
+        function showSignup() {
+            document.getElementById('loginForm').classList.add('hidden');
+            document.getElementById('signupForm').classList.remove('hidden');
+        }
+
+        function login() {
+            const username = document.getElementById('loginUsername').value;
+            const password = document.getElementById('loginPassword').value;
+            
+            if (!username || !password) {
+                showNotification('Please fill in all fields', 'error');
+                return;
+            }
+
+            // Simulate login
+            currentUser = {
+                username: username,
+                nameColor: '#ffffff',
+                isAdmin: false,
+                title: '',
+                isChromatic: false
+            };
+
+            localStorage.setItem('thundr_user', JSON.stringify(currentUser));
+            showMainApp();
+            showNotification('Welcome back to thundr!', 'success');
+        }
+
+        function signup() {
+            const username = document.getElementById('signupUsername').value;
+            const email = document.getElementById('signupEmail').value;
+            const password = document.getElementById('signupPassword').value;
+            const promoCode = document.getElementById('promoCode').value;
+            const title = document.getElementById('userTitle').value;
+
+            if (!username || !email || !password) {
+                showNotification('Please fill in all required fields', 'error');
+                return;
+            }
+
+            currentUser = {
+                username: username,
+                email: email,
+                nameColor: '#ffffff',
+                isAdmin: false,
+                title: title || '',
+                isChromatic: false
+            };
+
+            // Handle promo codes
+            if (promoCode === '1235') {
+                currentUser.nameColor = '#' + Math.floor(Math.random()*16777215).toString(16);
+                showNotification('Custom name color activated!', 'success');
+            } else if (promoCode === '1236') {
+                currentUser.isAdmin = true;
+                currentUser.isChromatic = true;
+                showNotification('Admin powers and chromatic effect activated!', 'success');
+            }
+
+            localStorage.setItem('thundr_user', JSON.stringify(currentUser));
+            showMainApp();
+            showNotification('Welcome to thundr! Account created successfully.', 'success');
+        }
+
+        function showMainApp() {
+            document.getElementById('authContainer').style.display = 'none';
+            document.getElementById('mainContainer').style.display = 'block';
+            document.getElementById('userGreeting').textContent = currentUser.username;
+            
+            if (currentUser.isChromatic) {
+                document.getElementById('userGreeting').classList.add('chromatic-text');
+            } else {
+                document.getElementById('userGreeting').style.color = currentUser.nameColor;
+            }
+        }
+
+        function logout() {
+            localStorage.removeItem('thundr_user');
+            location.reload();
+        }
+
+        // Initialize app
+        document.addEventListener('DOMContentLoaded', function() {
+            updateDateTime();
+            setInterval(updateDateTime, 1000);
+            
+            // Check for persistent login
+            const savedUser = localStorage.getItem('thundr_user');
+            if (savedUser) {
+                currentUser = JSON.parse(savedUser);
+                showMainApp();
+            }
+
+            // Initialize dynamic island drag
+            initDynamicIsland();
+
+            // Promo code handler
+            document.getElementById('promoCode').addEventListener('input', function(e) {
+                const code = e.target.value;
+                const titleInput = document.getElementById('customTitle');
+                if (code === '1235' || code === '1236') {
+                    titleInput.style.display = 'block';
+                } else {
+                    titleInput.style.display = 'none';
+                }
+            });
+        });
+
+        function updateDateTime() {
+            const now = new Date();
+            const options = { 
+                weekday: 'long', 
+                year: 'numeric', 
+                month: 'long', 
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit'
+            };
+            document.getElementById('datetime').textContent = now.toLocaleDateString('en-US', options);
+        }
+
+        function login() {
+            const username = document.getElementById('loginUsername').value;
+            const password = document.getElementById('loginPassword').value;
+            
+            if (!username || !password) {
+                showNotification('Please fill in all fields', 'error');
+                return;
+            }
+
+            // Simulate login
+            currentUser = {
+                username: username,
+                nameColor: '#ffffff',
+                isAdmin: false,
+                title: '',
+                isChromatic: false
+            };
+
+            localStorage.setItem('thundr_user', JSON.stringify(currentUser));
+            showMainApp();
+            showNotification('Welcome back to thundr!', 'success');
+        }
+
+        function signup() {
+            const username = document.getElementById('signupUsername').value;
+            const email = document.getElementById('signupEmail').value;
+            const password = document.getElementById('signupPassword').value;
+            const promoCode = document.getElementById('promoCode').value;
+            const title = document.getElementById('userTitle').value;
+
+            if (!username || !email || !password) {
+                showNotification('Please fill in all required fields', 'error');
+                return;
+            }
+
+            currentUser = {
+                username: username,
+                email: email,
+                nameColor: '#ffffff',
+                isAdmin: false,
+                title: title || '',
+                isChromatic: false
+            };
+
+            // Handle promo codes
+            if (promoCode === '1235') {
+                currentUser.nameColor = '#' + Math.floor(Math.random()*16777215).toString(16);
+                showNotification('Custom name color activated!', 'success');
+            } else if (promoCode === '1236') {
+                currentUser.isAdmin = true;
+                currentUser.isChromatic = true;
+                showNotification('Admin powers and chromatic effect activated!', 'success');
+            }
+
+            localStorage.setItem('thundr_user', JSON.stringify(currentUser));
+            showMainApp();
+            showNotification('Welcome to thundr! Account created successfully.', 'success');
+        }
+
+        function showMainApp() {
+            document.getElementById('authContainer').style.display = 'none';
+            document.getElementById('mainContainer').style.display = 'block';
+            document.getElementById('userGreeting').textContent = currentUser.username;
+            
+            if (currentUser.isChromatic) {
+                document.getElementById('userGreeting').classList.add('chromatic-text');
+            } else {
+                document.getElementById('userGreeting').style.color = currentUser.nameColor;
+            }
+        }
+
+        function logout() {
+            localStorage.removeItem('thundr_user');
+            location.reload();
+        }
+
+        function switchView(view) {
+            // Hide all views
+            document.querySelectorAll('.dashboard, .chat-container, .settings-panel').forEach(el => {
+                el.style.display = 'none';
+            });
+
+            // Update nav items
+            document.querySelectorAll('.nav-item').forEach(item => {
+                item.classList.remove('active');
+            });
+
+            // Show selected view
+            const viewElement = document.querySelector(`[data-view="${view}"]`);
+            if (viewElement) {
+                viewElement.classList.add('active');
+            }
+
+            switch(view) {
+                case 'dashboard':
+                    document.getElementById('dashboardView').style.display = 'flex';
+                    break;
+                case 'chat':
+                case 'friends':
+                case 'global':
+                case 'ai':
+                    document.getElementById('chatView').style.display = 'block';
+                    if (view === 'global') startChat('global');
+                    else if (view === 'ai') startChat('ai');
+                    break;
+                case 'settings':
+                    document.getElementById('settingsView').style.display = 'block';
+                    break;
+            }
+        }
+
+        function startChat(chatType) {
+            currentChat = chatType;
+            const messagesContainer = document.getElementById('chatMessages');
+            const titleElement = document.getElementById('chatTitle');
+            
+            messagesContainer.innerHTML = '';
+            
+            if (chatType === 'ai') {
+                titleElement.innerHTML = '<span style="filter: grayscale(1) brightness(0) invert(1);">🤖</span> AI Assistant';
+                addMessage('ai', 'Hello! I\'m your AI assistant. How can I help you today?', 'AI Assistant');
+            } else if (chatType === 'global') {
+                titleElement.innerHTML = '<span style="filter: grayscale(1) brightness(0) invert(1);">🌍</span> Global Chat';
+                addMessage('system', 'Welcome to the global chat! Be respectful and have fun!', 'System');
+                // Add some sample messages
+                setTimeout(() => {
+                    addMessage('user', 'Hey everyone! How\'s everyone doing?', 'ChatUser123');
+                }, 1000);
+                setTimeout(() => {
+                    addMessage('user', 'Great! Just joined thundr, loving the design!', 'DesignLover');
+                }, 2000);
+            }
+        }
+
+        function sendMessage() {
+            const input = document.getElementById('messageInput');
+            const message = input.value.trim();
+            
+            if (!message || !currentChat) return;
+
+            addMessage('own', message, currentUser.username);
+            input.value = '';
+
+            // Simulate responses
+            if (currentChat === 'ai') {
+                setTimeout(() => {
+                    const responses = [
+                        'That\'s an interesting question! Let me help you with that.',
+                        'I understand what you\'re asking. Here\'s what I think...',
+                        'Great point! I can definitely assist you with that.',
+                        'Thanks for asking! Here\'s my perspective on this topic.',
+                        'I\'m here to help! Let me break that down for you.'
+                    ];
+                    const randomResponse = responses[Math.floor(Math.random() * responses.length)];
+                    addMessage('ai', randomResponse, 'AI Assistant');
+                }, 1000);
+            } else if (currentChat === 'global') {
+                // Show notification for global messages
+                if (notificationsEnabled) {
+                    setTimeout(() => {
+                        showNotification(`New message in Global Chat: "${message.substring(0, 50)}..."`, 'info');
+                    }, 2000);
+                }
+            }
+        }
+
+        function addMessage(type, text, sender) {
+            const messagesContainer = document.getElementById('chatMessages');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${type}`;
+            
+            let senderDisplay = sender;
+            if (sender === currentUser.username) {
+                if (currentUser.title) {
+                    senderDisplay = `${currentUser.title} ${sender}`;
+                }
+                if (currentUser.isChromatic) {
+                    senderDisplay = `<span class="chromatic-text">${senderDisplay}</span>`;
+                } else {
+                    senderDisplay = `<span style="color: ${currentUser.nameColor}">${senderDisplay}</span>`;
+                }
+            }
+
+            messageDiv.innerHTML = `
+                <div class="message-sender">${senderDisplay}</div>
+                <div>${text}</div>
+            `;
+            
+            messagesContainer.appendChild(messageDiv);
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        }
+
+        function toggleSetting(toggle) {
+            toggle.classList.toggle('active');
+        }
+
+        function toggleNavPosition(toggle) {
+            const island = document.getElementById('dynamicIsland');
+            island.classList.toggle('right');
+            toggle.classList.toggle('active');
+        }
+
+        function deleteAccount() {
+            if (confirm('Are you sure you want to delete your account? This action cannot be undone.')) {
+                localStorage.removeItem('thundr_user');
+                showNotification('Account deleted successfully', 'success');
+                location.reload();
+            }
+        }
+
+        function showNotification(message, type) {
+            const notification = document.createElement('div');
+            notification.className = `notification glass ${type}`;
+            notification.textContent = message;
+            
+            if (type === 'success') {
+                notification.style.background = 'rgba(76, 175, 80, 0.2)';
+                notification.style.borderColor = 'rgba(76, 175, 80, 0.3)';
+            } else if (type === 'error') {
+                notification.style.background = 'rgba(244, 67, 54, 0.2)';
+                notification.style.borderColor = 'rgba(244, 67, 54, 0.3)';
+            } else {
+                notification.style.background = 'rgba(33, 150, 243, 0.2)';
+                notification.style.borderColor = 'rgba(33, 150, 243, 0.3)';
+            }
+            
+            document.body.appendChild(notification);
+            
+            setTimeout(() => {
+                notification.classList.add('show');
+            }, 100);
+            
+            setTimeout(() => {
+                notification.classList.remove('show');
+                setTimeout(() => {
+                    document.body.removeChild(notification);
+                }, 300);
+            }, 3000);
+        }
+
+        function initDynamicIsland() {
+            const island = document.getElementById('dynamicIsland');
+            let isDragging = false;
+            let startX, startY, initialLeft, initialTop;
+
+            island.addEventListener('mousedown', function(e) {
+                if (e.target.classList.contains('nav-item')) return;
+                isDragging = true;
+                startX = e.clientX;
+                startY = e.clientY;
+                initialLeft = island.offsetLeft;
+                initialTop = island.offsetTop;
+                island.style.cursor = 'grabbing';
+            });
+
+            document.addEventListener('mousemove', function(e) {
+                if (!isDragging) return;
+                
+                const deltaX = e.clientX - startX;
+                const deltaY = e.clientY - startY;
+                
+                island.style.left = (initialLeft + deltaX) + 'px';
+                island.style.top = (initialTop + deltaY) + 'px';
+                island.style.transform = 'none';
+            });
+
+            document.addEventListener('mouseup', function() {
+                if (isDragging) {
+                    isDragging = false;
+                    island.style.cursor = 'move';
+                }
+            });
+
+            // Navigation click handlers
+            document.querySelectorAll('.nav-item[data-view]').forEach(item => {
+                item.addEventListener('click', function() {
+                    const view = this.getAttribute('data-view');
+                    switchView(view);
+                });
+            });
+        }
